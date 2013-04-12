@@ -1,26 +1,25 @@
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE TemplateHaskell    #-}
 module Main where
 
-import           Test.Hspec        (Spec, describe, it, shouldBe)
-import           Test.Hspec.Runner (Config (..), defaultConfig, hspecWith)
+import           Test.Hspec              (Spec, describe, it, shouldBe)
+import           Test.Hspec.Runner       (Config (..), defaultConfig, hspecWith)
 --------------------------------------------------------------------------------
--- import qualified Bayeux.Test.ContextTest     as Context
--- import qualified Bayeux.Test.LocalClientTest as LocalClient
 
-dummySpec :: Spec
-dummySpec = describe "This is an example" $ do
-    it "always returns True" $ True `shouldBe` True
-    it "returns False" $ True `shouldBe` True
+import qualified Bayeux.Test.ClientTest
+import qualified Bayeux.Test.ContextTest
+import qualified Bayeux.Test.EngineTest
 
-tests :: Spec
-tests = do
-  dummySpec
-  -- LocalClient.tests
+
+specs :: Spec
+specs = do
+  Bayeux.Test.ContextTest.specs
+  Bayeux.Test.EngineTest.specs
+  Bayeux.Test.ClientTest.specs
 
 runTests :: IO ()
 runTests = do
-    putStrLn (replicate 20 '-')
-    hspecWith userConfig tests >> return ()
-    putStrLn ""
+    hspecWith userConfig specs >> return ()
   where
     userConfig = defaultConfig {
                    configFastFail = True

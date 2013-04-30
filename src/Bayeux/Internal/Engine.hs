@@ -27,8 +27,8 @@ import qualified Control.Distributed.Process.Serializable as Cloud
 
 --------------------
 
-import           Bayeux.Internal.Client                   (checkClientIsConnected,
-                                                           sendToClient)
+-- import           Bayeux.Internal.Client                   (checkClientIsConnected,
+--                                                            sendToClient)
 import           Bayeux.Internal.Core                     (nsendSync)
 import           Bayeux.Internal.Types                    (BayeuxInternalMsg (..),
                                                            ClientId,
@@ -101,16 +101,16 @@ handleSyncBayeuxMsg (HandshakeRequest, sPort) = do
 handleSyncBayeuxMsg _ = return ()
 
 handleBayeuxMsg :: EngineState -> BayeuxInternalMsg -> Cloud.Process ()
-handleBayeuxMsg es (ConnectRequest clientId) = do
-    liftIO $ updateClientStatus (es ^. engineClientStatusMap)
-                                clientId CONNECTED
-    sendToClient clientId ConnectResponse
-handleBayeuxMsg es msg@(SubscribeRequest clientId chanName) = do
-    isClientConnected <- liftIO $ checkClientIsConnected (es ^. engineClientStatusMap)
-                                                         clientId
-    if not isClientConnected
-       then sendToClient clientId (ErrorResponse msg)
-       else return ()
+-- handleBayeuxMsg es (ConnectRequest clientId) = do
+--     liftIO $ updateClientStatus (es ^. engineClientStatusMap)
+--                                 clientId CONNECTED
+--     sendToClient clientId ConnectResponse
+-- handleBayeuxMsg es msg@(SubscribeRequest clientId chanName) = do
+--     isClientConnected <- liftIO $ checkClientIsConnected (es ^. engineClientStatusMap)
+--                                                          clientId
+--     if not isClientConnected
+--        then sendToClient clientId (ErrorResponse msg)
+--        else return ()
 handleBayeuxMsg _ _ = error "not supported yet"
 
 --------------------------------------------------------------------------------

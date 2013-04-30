@@ -4,7 +4,7 @@ import qualified Data.HashMap.Strict           as HashMap
 
 --------------------
 
-import           Control.Lens                  ((^.))
+import           Control.Lens                  (at, (^.))
 
 --------------------
 
@@ -28,7 +28,7 @@ import           Test.HUnit                    (assertBool, assertEqual)
 import           Bayeux.Internal.Context       (runContextOnce)
 import           Bayeux.Internal.Engine.Memory
 import           Bayeux.Internal.Messages      (sendHandshake)
-import           Bayeux.Internal.Types         (BayeuxInternalMsg (..), Context)
+import           Bayeux.Internal.Types
 
 --------------------------------------------------------------------------------
 
@@ -54,7 +54,12 @@ specs = describe "Bayeux.Engine.Memory" $ do
        statusMap <- atomically $ readTVar (engine ^. engineStateClientStatusMap)
        assertBool "engine state map should be have one clientId" $ (HashMap.size statusMap) == 1
 
-    it "adds a CONNECTING entry to ClientStatusMap" $ pending
+    it "adds a CONNECTING entry to ClientStatusMap" $ do
+       engine <- newEngineState
+       cid <- execContext $ spawnEngine'' engine >> sendHandshake
+       statusMap <- atomically $ readTVar (engine ^. engineStateClientStatusMap)
+       assertEqual "engine state map should be have one clientId with CONNECTING"
+                   (Just CONNECTING) (statusMap ^. at cid)
 
   context "connect" $ do
     context "unknown clientId" $ do

@@ -29,48 +29,49 @@ import           Bayeux.Internal.Core                     (nsendSync)
 import           Bayeux.Internal.Messages                 (sendHandshake,
                                                            sendToEngine)
 import           Bayeux.Internal.Types                    (BayeuxInternalMsg (..),
-                                                           Client (..),
                                                            ClientId,
                                                            ClientInbox,
                                                            ClientPid,
+                                                           ClientState (..),
                                                            ClientStatus (..),
                                                            ClientStatusMap,
-                                                           Context, clientId,
-                                                           clientStatus)
+                                                           Context,
+                                                           clientStateId,
+                                                           clientStateStatus)
 
 --------------------------------------------------------------------------------
 
 -- getMessagesFromClientInbox :: ClientId -> Cloud.Process [BayeuxInternalMsg]
--- getMessagesFromClientInbox clientId = do
---     liftIO $ putStrLn $ "[client.output" ++ clientId ++ "] sending"
---     sendToClientSync clientId ClientInboxRequest
+-- getMessagesFromClientInbox clientStateId = do
+--     liftIO $ putStrLn $ "[client.output" ++ clientStateId ++ "] sending"
+--     sendToClientSync clientStateId ClientInboxRequest
 
 
 --------------------------------------------------------------------------------
 
-newClient :: MonadIO m => Context -> m Client
-newClient ctx = liftIO . execContext ctx $ newClient'
+newClientState :: MonadIO m => Context -> m ClientState
+newClientState ctx = liftIO . execContext ctx $ newClientState'
 
-newClient' :: Cloud.Process Client
-newClient' = do
+newClientState' :: Cloud.Process ClientState
+newClientState' = do
   cid <- sendHandshake
-  client <- Client <$> (pure cid)
-                   <*> (liftIO $ newTVarIO CONNECTING)
+  client <- ClientState <$> (pure cid)
+                        <*> (liftIO $ newTVarIO CONNECTING)
   spawnClient client
   return client
 
-connectClient :: MonadIO m => Context -> Client -> m ()
+connectClient :: MonadIO m => Context -> ClientState -> m ()
 connectClient ctx client = liftIO . execContext ctx $ connectClient' client
 
-connectClient' :: Client -> Cloud.Process ()
+connectClient' :: ClientState -> Cloud.Process ()
 connectClient' client = do
-  sendToEngine [ConnectRequest (client ^. clientId)]
+  sendToEngine [ConnectRequest (client ^. clientStateId)]
 
 
 --------------------------------------------------------------------------------
 
-updateClientStatus :: MonadIO m => Client -> ClientStatus -> m ()
-updateClientStatus client cs = liftIO . atomically $ writeTVar (client ^. clientStatus) cs
+updateClientStatus :: MonadIO m => ClientState -> ClientStatus -> m ()
+updateClientStatus client cs = liftIO . atomically $ writeTVar (client ^. clientStateStatus) cs
 
 --------------------------------------------------------------------------------
 
@@ -98,7 +99,7 @@ newClientInbox = newTChanIO
 -- handleInboxRequest _ _ = error "Sending invalid sync message to client"
 
 
-handleMsg :: Client -> BayeuxInternalMsg -> Cloud.Process ()
+handleMsg :: ClientState -> BayeuxInternalMsg -> Cloud.Process ()
 handleMsg client (Response (ConnectRequest cid)) = do
     updateClientStatus client CONNECTED
 handleMsg _ msg@(ErrorResponse _) = do
@@ -109,7 +110,7 @@ handleMsg _ msg = error $ show msg ++ ": message not supported"
 
 --------------------------------------------------------------------------------
 
-spawnClient :: Client -> Cloud.Process ()
+spawnClient :: ClientState -> Cloud.Process ()
 spawnClient client = do
     -- clientInbox <- liftIO $ newClientInbox
 
@@ -122,5 +123,5 @@ spawnClient client = do
     -- clientOutputPid <- Cloud.spawnLocal $ forever $
     --      Cloud.receiveWait [Cloud.match (handleInboxRequest clientInbox)]
 
-    Cloud.register ("client.input." ++ (client ^. clientId)) clientInputPid
-    -- Cloud.register ("client.output." ++ clientId) clientOutputPid
+    Cloud.register ("client.input." ++ (client ^. clientStateId)) clientInputPid
+    -- Cloud.register ("client.output." ++ clientStateId) clientOutputPid

@@ -86,13 +86,13 @@ makeLenses ''EngineState
 
 --------------------------------------------------------------------------------
 
-data Client
-    = Client {
-      _clientId     :: ClientId
-    , _clientStatus :: TVar ClientStatus
+data ClientState
+    = ClientState {
+      _clientStateId     :: ClientId
+    , _clientStateStatus :: TVar ClientStatus
     }
 
-makeLenses ''Client
+makeLenses ''ClientState
 
 -- type ChanName = String
 -- type ClientId = String

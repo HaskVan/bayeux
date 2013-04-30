@@ -25,24 +25,23 @@ import           Bayeux.Util.Test              (execTestContext)
 
 specs = describe "Bayeux.Client" $ do
 
-   context "newClient" $ do
-
+   context "newClientState" $ do
      it "creates a new client with CONNECTING status" $ do
-       client <- execTestContext $ spawnEngine' >> newClient'
-       status <- atomically $ readTVar (client ^. clientStatus)
+       client <- execTestContext $ spawnEngine' >> newClientState'
+       status <- atomically $ readTVar (client ^. clientStateStatus)
        assertEqual "client status should be CONNECTING" CONNECTING status
 
      it "creates a new client with a ClientId" $ do
-       client <- execTestContext $ spawnEngine' >> newClient'
-       assertBool "ClientId should not be empty" $ (length $ client ^. clientId) > 0
+       client <- execTestContext $ spawnEngine' >> newClientState'
+       assertBool "ClientId should not be empty" $ (length $ client ^. clientStateId) > 0
 
    context "connectClient" $ do
-     it "updates the clientState to CONNECTED" $ do
+     it "updates the clientStateStatus to CONNECTED" $ do
        client <- execTestContext $ do
                    spawnEngine'
-                   client <- newClient'
+                   client <- newClientState'
                    connectClient' client
                    return client
        threadDelay 100
-       cs <- atomically (readTVar (client ^. clientStatus))
+       cs <- atomically (readTVar (client ^. clientStateStatus))
        assertEqual "ClientStatus should be CONNECTED" CONNECTED cs

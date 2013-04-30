@@ -69,11 +69,12 @@ updateClientStatus engine cid clientSt =
 handleSyncMsg :: EngineState
               -> (BayeuxInternalMsg, Cloud.SendPort BayeuxInternalMsg)
               -> Cloud.Process ()
-handleSyncMsg _ (Ping, sPort) = Cloud.sendChan sPort Pong
-handleSyncMsg _ (HandshakeRequest, sPort) = do
+-- handleSyncMsg _ (Ping, sPort) = Cloud.sendChan sPort Pong
+handleSyncMsg engine (HandshakeRequest, sPort) = do
     liftIO $ putStrLn "[engine] Handling Handshake request"
-    clientId <- liftIO genId
-    Cloud.sendChan sPort $ HandshakeResponse clientId
+    cid <- liftIO genId
+    liftIO $ updateClientStatus engine cid CONNECTING
+    Cloud.sendChan sPort $ HandshakeResponse cid
 handleSyncMsg _ msg = error $ show msg ++ ": Message not supported"
 
 handleMsg :: EngineState -> BayeuxInternalMsg -> Cloud.Process ()

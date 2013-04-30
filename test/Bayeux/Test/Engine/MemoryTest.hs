@@ -1,9 +1,16 @@
 module Bayeux.Test.Engine.MemoryTest where
 
+import qualified Data.HashMap.Strict           as HashMap
+
+--------------------
+
+import           Control.Lens                  ((^.))
+
 --------------------
 
 import           Control.Concurrent            (newEmptyMVar, putMVar, takeMVar,
                                                 threadDelay)
+import           Control.Concurrent.STM        (atomically, readTVar)
 import           Control.Monad.Trans           (MonadIO (..))
 
 --------------------
@@ -39,7 +46,14 @@ specs = describe "Bayeux.Engine.Memory" $ do
       result <- execContext $ spawnEngine' >> sendHandshake
       assertBool "clientId length must be greater than zero" $ length result > 0
 
-    it "adds an entry to the ClientStatusMap" $ pending
+    it "adds an entry to the ClientStatusMap" $ do
+       engine <- newEngineState
+       statusMap0 <- atomically $ readTVar (engine ^. engineStateClientStatusMap)
+       assertBool "engine state map should be empty" $ (HashMap.size statusMap0) == 0
+       _ <- execContext $ spawnEngine'' engine >> sendHandshake
+       statusMap <- atomically $ readTVar (engine ^. engineStateClientStatusMap)
+       assertBool "engine state map should be have one clientId" $ (HashMap.size statusMap) == 1
+
     it "adds a CONNECTING entry to ClientStatusMap" $ pending
 
   context "connect" $ do

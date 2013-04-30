@@ -8,13 +8,13 @@ import           Test.Hspec.Runner       (Config (..), defaultConfig, hspecWith)
 
 import qualified Bayeux.Test.ClientTest
 import qualified Bayeux.Test.ContextTest
-import qualified Bayeux.Test.EngineTest
+import qualified Bayeux.Test.Engine.MemoryTest
 
 
 specs :: Spec
 specs = do
   Bayeux.Test.ContextTest.specs
-  Bayeux.Test.EngineTest.specs
+  Bayeux.Test.Engine.MemoryTest.specs
   Bayeux.Test.ClientTest.specs
 
 runTests :: IO ()

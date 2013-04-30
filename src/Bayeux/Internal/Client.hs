@@ -28,17 +28,10 @@ import           Bayeux.Internal.Types                    (BayeuxInternalMsg (..
 
 --------------------------------------------------------------------------------
 
-sendToClient :: (Cloud.Serializable a) => ClientId -> a -> Cloud.Process ()
-sendToClient clientId = Cloud.nsend ("client.input." ++  clientId)
-
-sendToClientSync :: (Cloud.Serializable a, Cloud.Serializable b)
-                 => ClientId -> a -> Cloud.Process b
-sendToClientSync clientId = nsendSync ("client.output." ++ clientId)
-
-getMessagesFromClientInbox :: ClientId -> Cloud.Process [BayeuxInternalMsg]
-getMessagesFromClientInbox clientId = do
-    liftIO $ putStrLn $ "[client.output" ++ clientId ++ "] sending"
-    sendToClientSync clientId ClientInboxRequest
+-- getMessagesFromClientInbox :: ClientId -> Cloud.Process [BayeuxInternalMsg]
+-- getMessagesFromClientInbox clientId = do
+--     liftIO $ putStrLn $ "[client.output" ++ clientId ++ "] sending"
+--     sendToClientSync clientId ClientInboxRequest
 
 
 --------------------------------------------------------------------------------

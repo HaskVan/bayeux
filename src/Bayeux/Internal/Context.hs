@@ -2,8 +2,14 @@ module Bayeux.Internal.Context where
 
 --------------------
 
+import Control.Monad.Trans (MonadIO(..))
 import           Control.Applicative              (pure, (<$>), (<*>))
 import           Control.Exception                (SomeException (..), try)
+
+--------------------
+
+import           Control.Concurrent               (newEmptyMVar, putMVar,
+                                                   takeMVar)
 
 --------------------
 
@@ -41,6 +47,12 @@ releaseContext ctx = do
 
 withContext :: Context -> Cloud.Process () -> IO ()
 withContext ctx process = Cloud.runProcess (_contextNodeId ctx) process
+
+execContext :: Context -> Cloud.Process a -> IO a
+execContext ctx action = do
+  result <- newEmptyMVar
+  withContext ctx $ action >>= liftIO . putMVar result
+  takeMVar result
 
 runContextOnce :: Cloud.Process () -> IO ()
 runContextOnce process = do

@@ -89,10 +89,10 @@ handleSyncMsg engine (HandshakeRequest, sPort) = do
 handleSyncMsg _ msg = error $ show msg ++ ": Message not supported"
 
 handleMsg :: EngineState -> BayeuxInternalMsg -> Cloud.Process ()
-handleMsg engine (ConnectRequest cid) = do
+handleMsg engine msg@(ConnectRequest cid) = do
     liftIO $ putStrLn "Receiving connect request"
     updateClientStatus engine cid CONNECTED
-    sendToClient cid ConnectResponse
+    sendToClient cid (Response msg)
 handleMsg engine msg@(SubscribeRequest cid chanName) = do
     isClientConnected' <- isClientConnected engine cid
     if not isClientConnected'

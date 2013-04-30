@@ -26,18 +26,14 @@ import           Test.HUnit                    (assertBool, assertEqual)
 
 --------------------
 
-import           Bayeux.Internal.Context       (runContextOnce)
 import           Bayeux.Internal.Engine.Memory
 import           Bayeux.Internal.Messages      (sendHandshake, sendToEngine)
 import           Bayeux.Internal.Types
 
+import           Bayeux.Util.Test              (execTestContext)
+
 --------------------------------------------------------------------------------
 
-execContext :: Cloud.Process a -> IO a
-execContext action = do
-  result <- newEmptyMVar
-  runContextOnce (action >>= liftIO . putMVar result)
-  takeMVar result
 
 specs :: Spec
 specs = describe "Bayeux.Engine.Memory" $ do
@@ -45,20 +41,20 @@ specs = describe "Bayeux.Engine.Memory" $ do
   context "handshake" $ do
 
     it "returns a ClientId on response" $ do
-      result <- execContext $ spawnEngine' >> sendHandshake
+      result <- execTestContext $ spawnEngine' >> sendHandshake
       assertBool "clientId length must be greater than zero" $ length result > 0
 
     it "adds an entry to the ClientStatusMap" $ do
        engine <- newEngineState
        statusMap0 <- atomically $ readTVar (engine ^. engineStateClientStatusMap)
        assertBool "engine state map should be empty" $ (HashMap.size statusMap0) == 0
-       _ <- execContext $ spawnEngine'' engine >> sendHandshake
+       _ <- execTestContext $ spawnEngine'' engine >> sendHandshake
        statusMap <- atomically $ readTVar (engine ^. engineStateClientStatusMap)
        assertBool "engine state map should be have one clientId" $ (HashMap.size statusMap) == 1
 
     it "adds a CONNECTING entry to ClientStatusMap" $ do
        engine <- newEngineState
-       cid <- execContext $ spawnEngine'' engine >> sendHandshake
+       cid <- execTestContext $ spawnEngine'' engine >> sendHandshake
        statusMap <- atomically $ readTVar (engine ^. engineStateClientStatusMap)
        assertEqual "engine state map should have clientId with CONNECTING"
                    (Just CONNECTING) (statusMap ^. at cid)
@@ -69,7 +65,7 @@ specs = describe "Bayeux.Engine.Memory" $ do
 
       it "doesn't update the client status to CONNECTED" $ do
         engine <- newEngineState
-        _ <- execContext $ spawnEngine'' engine >> sendToEngine [ConnectRequest "foo"]
+        _ <- execTestContext $ spawnEngine'' engine >> sendToEngine [ConnectRequest "foo"]
         statusMap <- atomically $ readTVar (engine ^. engineStateClientStatusMap)
         assertBool "engine state map should be empty" $ (HashMap.size statusMap) == 0
 
@@ -77,7 +73,7 @@ specs = describe "Bayeux.Engine.Memory" $ do
 
       it "updates entry on ClientStatusMap to CONNECTED" $ do
         engine <- newEngineState
-        cid <- execContext $ do
+        cid <- execTestContext $ do
                  spawnEngine'' engine
                  cid <- sendHandshake
                  sendToEngine [ConnectRequest cid]
@@ -93,7 +89,7 @@ specs = describe "Bayeux.Engine.Memory" $ do
      context "when client is not CONNECTED" $ do
        it "doesn't modify engine subscription map" $ do
          engine <- newEngineState
-         cid <- execContext $ do
+         cid <- execTestContext $ do
                   spawnEngine'' engine
                   cid <- sendHandshake
                   sendToEngine [SubscribeRequest cid "/hello"]
@@ -105,7 +101,7 @@ specs = describe "Bayeux.Engine.Memory" $ do
      context "when client is CONNECTED" $ do
        it "adds cid to chan name on subscription map" $ do
          engine <- newEngineState
-         cid <- execContext $ do
+         cid <- execTestContext $ do
                   spawnEngine'' engine
                   cid <- sendHandshake
                   sendToEngine [ConnectRequest cid, SubscribeRequest cid "/hello"]

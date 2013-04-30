@@ -58,12 +58,12 @@ makeLenses ''Context
 data BayeuxInternalMsg
     = Ping
     | Pong
+    | Response BayeuxInternalMsg
     | ErrorResponse BayeuxInternalMsg
     | ClientInboxRequest
     | HandshakeRequest
     | HandshakeResponse ClientId
     | ConnectRequest ClientId
-    | ConnectResponse
     | SubscribeRequest ClientId ChanName
     deriving (Show, Eq, Ord, Typeable)
 
@@ -84,6 +84,15 @@ data EngineState
 
 makeLenses ''EngineState
 
+--------------------------------------------------------------------------------
+
+data Client
+    = Client {
+      _clientId     :: ClientId
+    , _clientStatus :: TVar ClientStatus
+    }
+
+makeLenses ''Client
 
 -- type ChanName = String
 -- type ClientId = String

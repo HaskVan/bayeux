@@ -29,7 +29,7 @@ sendHandshake = do
     HandshakeResponse clientId -> do
       liftIO . putStrLn $ "[engine] Received HandshakeResponse's clientId: " ++ clientId
       return clientId
-    _ -> error "You got a bug on engine's Handshake handler"
+    msg -> error $ "You got a bug on engine's Handshake handler, recieved: " ++ (show msg)
 
 -- Client Messages -------------------------------------------------------------
 

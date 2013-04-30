@@ -2,8 +2,10 @@
 module Bayeux.Internal.Engine.Memory where
 
 import           Data.HashMap.Strict                      (HashMap)
+import           Data.HashSet                             (HashSet)
 
 import qualified Data.HashMap.Strict                      as HashMap
+import qualified Data.HashSet                             as HashSet
 
 --------------------
 
@@ -15,7 +17,8 @@ import           Control.Concurrent.STM                   (TVar, atomically,
 
 import           Control.Applicative                      (Applicative, (<$>),
                                                            (<*>))
-import           Control.Lens                             (at, (&), (.~), (^.))
+import           Control.Lens                             (at, (%~), (&), (.~),
+                                                           (^.))
 import           Control.Lens.TH                          (makeLenses)
 import           Control.Monad                            (forever)
 import           Control.Monad.Trans                      (MonadIO (..))
@@ -40,7 +43,7 @@ import           Bayeux.Internal.Types                    (BayeuxInternalMsg (..
 
 data EngineState
     = EngineState {
-      _engineStateSubscriptions   :: TVar (HashMap ChanName ClientId)
+      _engineStateSubscriptions   :: TVar (HashMap ChanName (HashSet ClientId))
     , _engineStateClientStatusMap :: TVar (HashMap ClientId ClientStatus)
     }
 
@@ -64,6 +67,14 @@ updateClientStatus engine cid clientSt =
   where
     updateClientStatus' csm = csm & at cid .~ (Just clientSt)
 
+addClientIdToChannel :: MonadIO m => EngineState -> ChanName -> ClientId -> m ()
+addClientIdToChannel engine chanName cid =
+    liftIO . atomically $ modifyTVar (engine ^. engineStateSubscriptions)
+                                     updateSubscription'
+  where
+    updateSubscription' sm = sm & at chanName %~ addCidToChan
+    addCidToChan Nothing = Just $ HashSet.singleton cid
+    addCidToChan (Just subs) = Just $ HashSet.insert cid subs
 
 -- Cloud Handlers --------------------------------------------------------------
 
@@ -86,7 +97,8 @@ handleMsg engine msg@(SubscribeRequest cid chanName) = do
     isClientConnected' <- isClientConnected engine cid
     if not isClientConnected'
        then sendToClient cid (ErrorResponse msg)
-       else return ()
+       else do
+         addClientIdToChannel engine chanName cid
 handleMsg _ msg = error $ show msg ++ ": Message not supported yet"
 
 -- Initialization of Engine ----------------------------------------------------

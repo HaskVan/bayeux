@@ -1,6 +1,7 @@
 module Bayeux.Test.Engine.MemoryTest where
 
 import qualified Data.HashMap.Strict           as HashMap
+import qualified Data.HashSet                  as HashSet
 
 --------------------
 
@@ -86,3 +87,31 @@ specs = describe "Bayeux.Engine.Memory" $ do
         assertBool  "engine state map should not be empty" (HashMap.size statusMap > 0)
         assertEqual "engine state map should have clientId with CONNECTED"
                      (Just CONNECTED) (statusMap ^. at cid)
+
+  context "subscribe" $ do
+
+     context "when client is not CONNECTED" $ do
+       it "doesn't modify engine subscription map" $ do
+         engine <- newEngineState
+         cid <- execContext $ do
+                  spawnEngine'' engine
+                  cid <- sendHandshake
+                  sendToEngine [SubscribeRequest cid "/hello"]
+                  return cid
+         threadDelay 100
+         subscriptionMap <- atomically $ readTVar (engine ^. engineStateSubscriptions)
+         assertBool "engine subscription map should be empty" (HashMap.size subscriptionMap == 0)
+
+     context "when client is CONNECTED" $ do
+       it "adds cid to chan name on subscription map" $ do
+         engine <- newEngineState
+         cid <- execContext $ do
+                  spawnEngine'' engine
+                  cid <- sendHandshake
+                  sendToEngine [ConnectRequest cid, SubscribeRequest cid "/hello"]
+                  return cid
+         threadDelay 100
+         subscriptionMap <- atomically $ readTVar (engine ^. engineStateSubscriptions)
+         assertBool "engine subscription map should have 1 channel" (HashMap.size subscriptionMap == 1)
+         assertEqual "engine subscription map should have a channel with one clientId"
+                     (Just $ HashSet.fromList [cid]) (subscriptionMap  ^. at "/hello")

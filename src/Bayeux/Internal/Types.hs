@@ -65,6 +65,7 @@ data BayeuxInternalMsg
     | HandshakeResponse ClientId
     | ConnectRequest ClientId
     | SubscribeRequest ClientId ChanName
+    | PublishRequest ClientId ChanName String
     deriving (Show, Eq, Ord, Typeable)
 
 $(derive makeBinary ''BayeuxInternalMsg)
@@ -90,6 +91,7 @@ data ClientState
     = ClientState {
       _clientStateId     :: ClientId
     , _clientStateStatus :: TVar ClientStatus
+    , _clientStateInbox  :: ClientInbox
     }
 
 makeLenses ''ClientState

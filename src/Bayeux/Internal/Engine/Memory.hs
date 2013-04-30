@@ -3,6 +3,8 @@ module Bayeux.Internal.Engine.Memory where
 
 import           Data.HashMap.Strict                      (HashMap)
 import           Data.HashSet                             (HashSet)
+import           Data.Traversable                         (Traversable (..),
+                                                           traverse)
 
 import qualified Data.HashMap.Strict                      as HashMap
 import qualified Data.HashSet                             as HashSet
@@ -17,7 +19,8 @@ import           Control.Concurrent.STM                   (TVar, atomically,
 
 import           Control.Applicative                      (Applicative, (<$>),
                                                            (<*>))
-import           Control.Lens                             (at, (%~), (&), (.~),
+import           Control.Lens                             (at, mapMOf_, to,
+                                                           (%~), (&), (.~),
                                                            (^.))
 import           Control.Lens.TH                          (makeLenses)
 import           Control.Monad                            (forever)
@@ -39,7 +42,7 @@ import           Bayeux.Internal.Types                    (BayeuxInternalMsg (..
                                                            ClientStatus (..),
                                                            Context)
 
--- Types -----------------------------------------------------------------------
+-- Types & Basic state management ----------------------------------------------
 
 data EngineState
     = EngineState {
@@ -48,6 +51,8 @@ data EngineState
     }
 
 makeLenses ''EngineState
+
+--------------------
 
 newEngineState :: (Applicative m, MonadIO m) => m EngineState
 newEngineState = EngineState <$> (liftIO $ newTVarIO HashMap.empty)
@@ -76,6 +81,13 @@ addClientIdToChannel engine chanName cid =
     addCidToChan Nothing = Just $ HashSet.singleton cid
     addCidToChan (Just subs) = Just $ HashSet.insert cid subs
 
+sendToClientsInChannel :: EngineState -> ChanName -> BayeuxInternalMsg -> Cloud.Process ()
+sendToClientsInChannel engine chanName msg = do
+    subscriptions <- liftIO . atomically $ readTVar (engine ^. engineStateSubscriptions)
+    subscriptions ^. at chanName
+                  & mapMOf_ (traverse . (to HashSet.toList) . traverse)
+                            (\cid -> sendToClient cid msg)
+
 -- Cloud Handlers --------------------------------------------------------------
 
 handleSyncMsg :: EngineState
@@ -99,6 +111,15 @@ handleMsg engine msg@(SubscribeRequest cid chanName) = do
        then sendToClient cid (ErrorResponse msg)
        else do
          addClientIdToChannel engine chanName cid
+         sendToClient cid (Response msg)
+handleMsg engine msg@(PublishRequest cid chanName payload) = do
+    isClientConnected' <- isClientConnected engine cid
+    if not isClientConnected'
+       then sendToClient cid (ErrorResponse msg)
+       else do
+         sendToClient cid (Response msg)
+         sendToClientsInChannel engine chanName msg
+
 handleMsg _ msg = error $ show msg ++ ": Message not supported yet"
 
 -- Initialization of Engine ----------------------------------------------------

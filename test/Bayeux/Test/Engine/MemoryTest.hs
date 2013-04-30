@@ -111,3 +111,14 @@ specs = describe "Bayeux.Engine.Memory" $ do
          assertBool "engine subscription map should have 1 channel" (HashMap.size subscriptionMap == 1)
          assertEqual "engine subscription map should have a channel with one clientId"
                      (Just $ HashSet.fromList [cid]) (subscriptionMap  ^. at "/hello")
+
+  -- context "publish" $ do
+
+  --   it "sends a message to each subscriber on the channel" $ do
+  --     execTestContext $ do
+  --       spawnEngine'
+  --       cid1 <- sendHandshake
+  --       cid2 <- sendHandshake
+  --       sendToEngine [ConnectRequest cid1, SubscribeRequest cid1 "/hello"]
+  --       sendToEngine [ConnectRequest cid2, SubscribeRequest cid2 "/hello"]
+  --       sendToEngine [PublishRequest cid1 "/hello" (

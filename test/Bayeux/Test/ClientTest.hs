@@ -42,6 +42,20 @@ specs = describe "Bayeux.Client" $ do
                    client <- newClientState'
                    connectClient' client
                    return client
-       threadDelay 100
+       threadDelay 500
        cs <- atomically (readTVar (client ^. clientStateStatus))
        assertEqual "ClientStatus should be CONNECTED" CONNECTED cs
+
+   context "publish/subscribe" $ do
+     it "publish updates client inbox when subscribed" $ do
+      client <- execTestContext $ do
+                  spawnEngine'
+                  client <- newClientState'
+                  connectClient' client
+                  subscribe' client "/hello"
+                  publish' client "/hello" "Hello World"
+                  return client
+      threadDelay 1000
+      inbox <- readInboxContents client
+      let result = [PublishRequest (client ^. clientStateId) "/hello" "Hello World"]
+      assertEqual "should have a PublishRequest on inbox" result inbox

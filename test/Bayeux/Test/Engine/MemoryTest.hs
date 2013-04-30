@@ -27,7 +27,7 @@ import           Test.HUnit                    (assertBool, assertEqual)
 
 import           Bayeux.Internal.Context       (runContextOnce)
 import           Bayeux.Internal.Engine.Memory
-import           Bayeux.Internal.Messages      (sendHandshake)
+import           Bayeux.Internal.Messages      (sendHandshake, sendToEngine)
 import           Bayeux.Internal.Types
 
 --------------------------------------------------------------------------------
@@ -42,6 +42,7 @@ specs :: Spec
 specs = describe "Bayeux.Engine.Memory" $ do
 
   context "handshake" $ do
+
     it "returns a ClientId on response" $ do
       result <- execContext $ spawnEngine' >> sendHandshake
       assertBool "clientId length must be greater than zero" $ length result > 0
@@ -58,12 +59,30 @@ specs = describe "Bayeux.Engine.Memory" $ do
        engine <- newEngineState
        cid <- execContext $ spawnEngine'' engine >> sendHandshake
        statusMap <- atomically $ readTVar (engine ^. engineStateClientStatusMap)
-       assertEqual "engine state map should be have one clientId with CONNECTING"
+       assertEqual "engine state map should have clientId with CONNECTING"
                    (Just CONNECTING) (statusMap ^. at cid)
 
   context "connect" $ do
+
     context "unknown clientId" $ do
-      it "returns invalid response" $ pending
+
+      it "doesn't update the client status to CONNECTED" $ do
+        engine <- newEngineState
+        _ <- execContext $ spawnEngine'' engine >> sendToEngine [ConnectRequest "foo"]
+        statusMap <- atomically $ readTVar (engine ^. engineStateClientStatusMap)
+        assertBool "engine state map should be empty" $ (HashMap.size statusMap) == 0
+
     context "known clientId" $ do
-      it "returns valid connect response" $ pending
-      it "updates entry on ClientStatusMap to CONNECTED" $ pending
+
+      it "updates entry on ClientStatusMap to CONNECTED" $ do
+        engine <- newEngineState
+        cid <- execContext $ do
+                 spawnEngine'' engine
+                 cid <- sendHandshake
+                 sendToEngine [ConnectRequest cid]
+                 return cid
+        threadDelay 100
+        statusMap <- atomically $ readTVar (engine ^. engineStateClientStatusMap)
+        assertBool  "engine state map should not be empty" (HashMap.size statusMap > 0)
+        assertEqual "engine state map should have clientId with CONNECTED"
+                     (Just CONNECTED) (statusMap ^. at cid)

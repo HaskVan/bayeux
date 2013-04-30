@@ -13,7 +13,8 @@ import           Control.Concurrent.STM                   (TVar, atomically,
 
 --------------------
 
-import           Control.Applicative                      ((<$>), (<*>))
+import           Control.Applicative                      (Applicative, (<$>),
+                                                           (<*>))
 import           Control.Lens                             (at, (&), (.~), (^.))
 import           Control.Lens.TH                          (makeLenses)
 import           Control.Monad                            (forever)
@@ -45,20 +46,20 @@ data EngineState
 
 makeLenses ''EngineState
 
-newEngineState :: IO EngineState
-newEngineState = EngineState <$> newTVarIO HashMap.empty
-                             <*> newTVarIO HashMap.empty
+newEngineState :: (Applicative m, MonadIO m) => m EngineState
+newEngineState = EngineState <$> (liftIO $ newTVarIO HashMap.empty)
+                             <*> (liftIO $ newTVarIO HashMap.empty)
 
-isClientConnected :: EngineState -> ClientId -> IO Bool
+isClientConnected :: MonadIO m => EngineState -> ClientId -> m Bool
 isClientConnected engine cid = do
-  csm <- atomically $ readTVar (engine ^. engineStateClientStatusMap)
+  csm <- liftIO . atomically $ readTVar (engine ^. engineStateClientStatusMap)
   case csm ^. at cid of
     Just CONNECTED -> return True
     _ -> return False
 
-updateClientStatus :: EngineState -> ClientId -> ClientStatus -> IO ()
+updateClientStatus :: MonadIO m => EngineState -> ClientId -> ClientStatus -> m ()
 updateClientStatus engine cid clientSt =
-    atomically $ modifyTVar (engine ^. engineStateClientStatusMap)
+    liftIO . atomically $ modifyTVar (engine ^. engineStateClientStatusMap)
                             updateClientStatus'
   where
     updateClientStatus' csm = csm & at cid .~ (Just clientSt)
@@ -69,7 +70,6 @@ updateClientStatus engine cid clientSt =
 handleSyncMsg :: EngineState
               -> (BayeuxInternalMsg, Cloud.SendPort BayeuxInternalMsg)
               -> Cloud.Process ()
--- handleSyncMsg _ (Ping, sPort) = Cloud.sendChan sPort Pong
 handleSyncMsg engine (HandshakeRequest, sPort) = do
     liftIO $ putStrLn "[engine] Handling Handshake request"
     cid <- liftIO genId
@@ -78,13 +78,14 @@ handleSyncMsg engine (HandshakeRequest, sPort) = do
 handleSyncMsg _ msg = error $ show msg ++ ": Message not supported"
 
 handleMsg :: EngineState -> BayeuxInternalMsg -> Cloud.Process ()
-handleMsg engine (ConnectRequest clientId) = do
-    liftIO $ updateClientStatus engine clientId CONNECTED
-    sendToClient clientId ConnectResponse
-handleMsg engine msg@(SubscribeRequest clientId chanName) = do
-    isClientConnected' <- liftIO $ isClientConnected engine clientId
+handleMsg engine (ConnectRequest cid) = do
+    liftIO $ putStrLn "Receiving connect request"
+    updateClientStatus engine cid CONNECTED
+    sendToClient cid ConnectResponse
+handleMsg engine msg@(SubscribeRequest cid chanName) = do
+    isClientConnected' <- isClientConnected engine cid
     if not isClientConnected'
-       then sendToClient clientId (ErrorResponse msg)
+       then sendToClient cid (ErrorResponse msg)
        else return ()
 handleMsg _ msg = error $ show msg ++ ": Message not supported yet"
 
@@ -95,7 +96,7 @@ spawnEngine ctx = withContext ctx $ spawnEngine'
 
 spawnEngine' :: Cloud.Process ()
 spawnEngine' = do
-  engine <- liftIO $ newEngineState
+  engine <- newEngineState
   spawnEngine'' engine
 
 spawnEngine'' :: EngineState -> Cloud.Process ()
@@ -105,4 +106,5 @@ spawnEngine'' engine = do
   where
     handleMessages = forever $ do
       Cloud.receiveWait [ Cloud.match (handleSyncMsg engine)
+                        , Cloud.match (handleMsg engine)
                         , Cloud.match (mapM_ (handleMsg engine)) ]

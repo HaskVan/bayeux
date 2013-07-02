@@ -1,5 +1,8 @@
 module Bayeux.Internal.Client where
 
+
+import           Data.ByteString                          (ByteString)
+
 --------------------
 
 import           Control.Applicative                      (pure, (<$>), (<*>))
@@ -60,13 +63,22 @@ connectClient ctx client = liftIO . execContext ctx $ connectClient' client
 connectClient' :: ClientState -> Cloud.Process ()
 connectClient' client = sendToEngine [ConnectRequest (client ^. clientStateId)]
 
+sendToEngine' :: ClientState -> [BayeuxInternalMsg] -> Cloud.Process ()
+sendToEngine' client msgs = do
+    status <- liftIO $ atomically $ readTVar (client ^. clientStateStatus)
+    case status of
+      CONNECTED -> sendToEngine msgs
+      _ -> sendToEngine (ConnectRequest cid : msgs)
+  where
+    cid = client ^. clientStateId
+
 subscribe' :: ClientState -> ChanName -> Cloud.Process ()
 subscribe' client chanName =
-    sendToEngine [SubscribeRequest (client ^. clientStateId) chanName]
+    sendToEngine' client [SubscribeRequest (client ^. clientStateId) chanName]
 
-publish' :: ClientState -> ChanName -> String -> Cloud.Process ()
+publish' :: ClientState -> ChanName -> ByteString -> Cloud.Process ()
 publish' client chanName payload =
-    sendToEngine [PublishRequest (client ^. clientStateId) chanName payload]
+    sendToEngine' client [PublishRequest (client ^. clientStateId) chanName payload]
 
 --------------------------------------------------------------------------------
 
@@ -105,11 +117,10 @@ handleInboxRequest _ _ = error "Sending invalid sync message to client"
 
 
 handleMsg :: ClientState -> BayeuxInternalMsg -> Cloud.Process ()
-handleMsg client (Response (ConnectRequest {})) = updateClientStatus client CONNECTED
--- TODO: do a timeout at some point
-handleMsg client (Response (SubscribeRequest {})) = return ()
--- TODO: do a timeout at some point
-handleMsg client (Response (PublishRequest {})) = return ()
+handleMsg client msg@(Response (ConnectRequest {})) = do
+  updateClientStatus client CONNECTED
+  appendToClientInbox client msg
+handleMsg client msg@(Response {}) = appendToClientInbox client msg
 handleMsg client msg@(PublishRequest {}) = appendToClientInbox client msg
 handleMsg _ msg@(ErrorResponse _) = error $ show msg ++ ": came back with an error"
 handleMsg _ msg = error $ show msg ++ ": message not supported"

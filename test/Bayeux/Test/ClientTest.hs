@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Bayeux.Test.ClientTest (specs) where
 
 import           Control.Lens                  ((^.))
@@ -48,14 +49,26 @@ specs = describe "Bayeux.Client" $ do
 
    context "publish/subscribe" $ do
      it "publish updates client inbox when subscribed" $ do
-      client <- execTestContext $ do
+      (client1, client2) <- execTestContext $ do
                   spawnEngine'
-                  client <- newClientState'
-                  connectClient' client
-                  subscribe' client "/hello"
-                  publish' client "/hello" "Hello World"
-                  return client
-      threadDelay 1000
-      inbox <- readInboxContents client
-      let result = [PublishRequest (client ^. clientStateId) "/hello" "Hello World"]
-      assertEqual "should have a PublishRequest on inbox" result inbox
+                  client1 <- newClientState'
+                  client2 <- newClientState'
+                  subscribe' client1 "/hello"
+                  subscribe' client2 "/hello"
+                  publish' client1 "/hello" "Hello World"
+                  return (client1, client2)
+      let cid1  = client1 ^. clientStateId
+      let cid2  = client2 ^. clientStateId
+      inbox1 <- readInboxContents client1
+      inbox2 <- readInboxContents client2
+      let result1 = [
+             Response (ConnectRequest   cid1)
+           , Response (SubscribeRequest cid1 "/hello")
+           , Response (PublishRequest   cid1 "/hello" "Hello World")
+           , PublishRequest cid1 "/hello" "Hello World"]
+      let result2 = [
+             Response (ConnectRequest   cid2)
+           , Response (SubscribeRequest cid2 "/hello")
+           , PublishRequest cid1 "/hello" "Hello World"]
+      assertEqual "should have a PublishRequest on inbox" result1 inbox1
+      assertEqual "should have a PublishRequest on inbox" result2 inbox2

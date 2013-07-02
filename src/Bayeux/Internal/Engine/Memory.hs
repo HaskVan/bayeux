@@ -81,7 +81,10 @@ addClientIdToChannel engine chanName cid =
     addCidToChan Nothing = Just $ HashSet.singleton cid
     addCidToChan (Just subs) = Just $ HashSet.insert cid subs
 
-sendToClientsInChannel :: EngineState -> ChanName -> BayeuxInternalMsg -> Cloud.Process ()
+sendToClientsInChannel :: EngineState
+                       -> ChanName
+                       -> BayeuxInternalMsg
+                       -> Cloud.Process ()
 sendToClientsInChannel engine chanName msg = do
     subscriptions <- liftIO . atomically $ readTVar (engine ^. engineStateSubscriptions)
     subscriptions ^. at chanName
@@ -103,8 +106,12 @@ handleSyncMsg _ msg = error $ show msg ++ ": Message not supported"
 handleMsg :: EngineState -> BayeuxInternalMsg -> Cloud.Process ()
 handleMsg engine msg@(ConnectRequest cid) = do
     liftIO $ putStrLn "Receiving connect request"
-    updateClientStatus engine cid CONNECTED
-    sendToClient cid (Response msg)
+    alreadyConnected <- isClientConnected engine cid
+    if alreadyConnected
+       then return ()
+       else do
+         updateClientStatus engine cid CONNECTED
+         sendToClient cid (Response msg)
 handleMsg engine msg@(SubscribeRequest cid chanName) = do
     isClientConnected' <- isClientConnected engine cid
     if not isClientConnected'

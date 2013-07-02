@@ -5,6 +5,7 @@ module Bayeux.Internal.Types where
 
 --------------------
 
+import Data.ByteString (ByteString)
 import           Data.HashMap.Strict              (HashMap)
 import           Data.Set                         (Set)
 
@@ -65,7 +66,7 @@ data BayeuxInternalMsg
     | HandshakeResponse ClientId
     | ConnectRequest ClientId
     | SubscribeRequest ClientId ChanName
-    | PublishRequest ClientId ChanName String
+    | PublishRequest ClientId ChanName ByteString
     deriving (Show, Eq, Ord, Typeable)
 
 $(derive makeBinary ''BayeuxInternalMsg)

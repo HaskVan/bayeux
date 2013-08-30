@@ -1,4 +1,8 @@
 .\#*
 \#*
-dist/
-cabal-dev/
+/dist
+/cabal-dev
+.built
+/.cabal-sandbox
+cabal.sandbox.config
+/vendor
